@@ -7,7 +7,6 @@ from typing import Any
 from pydantic import ValidationError
 
 from mcp.server import MCPServer
-from src.mcp_server.config import settings
 from src.mcp_server.notes.schemas import (
     CreateNoteInput,
     DeleteNoteInput,
@@ -15,6 +14,7 @@ from src.mcp_server.notes.schemas import (
     ListNotesInput,
 )
 from src.mcp_server.notes.service import NotesService
+from src.mcp_server.shared.context import get_current_user_id
 
 
 def register_notes_tools(server: MCPServer) -> None:
@@ -31,7 +31,7 @@ def register_notes_tools(server: MCPServer) -> None:
         except ValidationError as e:
             return {"error": f"Invalid input: {e.errors()[0]['msg']}"}
 
-        user_id = settings.test_user_id
+        user_id = get_current_user_id()
         return await NotesService.create_note(user_id, validated.title, validated.content)
 
     @server.tool(
@@ -48,7 +48,7 @@ def register_notes_tools(server: MCPServer) -> None:
         except ValidationError as e:
             return {"error": f"Invalid input: {e.errors()[0]['msg']}"}
 
-        user_id = settings.test_user_id
+        user_id = get_current_user_id()
         return await NotesService.list_notes(user_id, validated.query, validated.limit)
 
     @server.tool(
@@ -62,7 +62,7 @@ def register_notes_tools(server: MCPServer) -> None:
         except ValidationError:
             return "Not found"
 
-        user_id = settings.test_user_id
+        user_id = get_current_user_id()
         note = await NotesService.get_note(user_id, validated.id)
         if note is None:
             return "Not found"
@@ -79,7 +79,7 @@ def register_notes_tools(server: MCPServer) -> None:
         except ValidationError:
             return "Not found"
 
-        user_id = settings.test_user_id
+        user_id = get_current_user_id()
         deleted = await NotesService.delete_note(user_id, validated.id)
         if not deleted:
             return "Not found"

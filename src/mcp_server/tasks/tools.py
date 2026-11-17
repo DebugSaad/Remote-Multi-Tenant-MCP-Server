@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from mcp.server import MCPServer
-from src.mcp_server.config import settings
+from src.mcp_server.shared.context import get_current_user_id
 from src.mcp_server.tasks.schemas import (
     AddTaskInput,
     CompleteTaskInput,
@@ -30,7 +30,7 @@ def register_tasks_tools(server: MCPServer) -> None:
         except ValidationError as e:
             return {"error": f"Invalid input: {e.errors()[0]['msg']}"}
 
-        user_id = settings.test_user_id
+        user_id = get_current_user_id()
         return await TasksService.add_task(user_id, validated.title, validated.due_date)
 
     @server.tool(
@@ -47,7 +47,7 @@ def register_tasks_tools(server: MCPServer) -> None:
         except ValidationError as e:
             return {"error": f"Invalid input: {e.errors()[0]['msg']}"}
 
-        user_id = settings.test_user_id
+        user_id = get_current_user_id()
         return await TasksService.list_tasks(user_id, validated.status, validated.limit)
 
     @server.tool(
@@ -61,7 +61,7 @@ def register_tasks_tools(server: MCPServer) -> None:
         except ValidationError:
             return "Not found"
 
-        user_id = settings.test_user_id
+        user_id = get_current_user_id()
         completed = await TasksService.complete_task(user_id, validated.id)
         if completed is None:
             return "Not found"

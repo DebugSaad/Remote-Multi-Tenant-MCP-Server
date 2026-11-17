@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from src.mcp_server.config import settings
+from src.mcp_server.shared.context import get_current_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +87,7 @@ async def get_db_transaction(
     - Sets transaction-local `app.current_user_id` via `set_config(..., true)`.
     """
     factory = get_session_factory()
-    effective_user_id = user_id or settings.test_user_id
+    effective_user_id = user_id or get_current_user_id()
 
     async with factory() as session:
         async with session.begin():

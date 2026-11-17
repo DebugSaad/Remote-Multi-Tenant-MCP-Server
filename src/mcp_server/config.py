@@ -7,6 +7,9 @@ from functools import lru_cache
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Constant holding the Phase 2 test tenant UUID
+DEFAULT_TEST_USER_ID = "00000000-0000-0000-0000-000000000001"
+
 
 class Settings(BaseSettings):
     """Application configuration and database connection settings."""
@@ -51,7 +54,7 @@ class Settings(BaseSettings):
 
     # Hardcoded test user ID for Phase 2
     test_user_id: str = Field(
-        default="00000000-0000-0000-0000-000000000001",
+        default=DEFAULT_TEST_USER_ID,
         alias="TEST_USER_ID",
         description="Default hardcoded tenant UUID for Phase 2 development",
     )
@@ -65,3 +68,6 @@ def get_settings() -> Settings:
 
 # Singleton settings instance
 settings = get_settings()
+
+# Exported constant for Phase 2; Phase 3 swaps this to request context
+TEST_USER_ID: str = settings.test_user_id
