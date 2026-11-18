@@ -50,10 +50,10 @@ This document says **how** v1 is built. Product goals and user stories are in th
 | ID | Requirement |
 |---|---|
 | T-AUTH-1 | The server acts as an OAuth **resource server**. Login is delegated to the auth server. |
-| T-AUTH-2 | Unauthenticated requests receive `401` with a `WWW-Authenticate` header pointing to the protected-resource metadata. |
-| T-AUTH-3 | The server publishes protected-resource metadata at `/.well-known/oauth-protected-resource`, naming the auth server. |
-| T-AUTH-4 | The auth server must support the authorization-code flow with **PKCE** and dynamic client registration. |
-| T-AUTH-5 | Every access token is validated for: signature (JWKS, cached with refresh), `exp`, `nbf`, issuer, and **audience equal to this server's resource URL**. |
+| T-AUTH-2 | Unauthenticated requests receive `401` with a `WWW-Authenticate` header pointing to the protected-resource metadata and carrying a scope. |
+| T-AUTH-3 | The server serves protected-resource metadata at both `/.well-known/oauth-protected-resource/mcp` and the root `/.well-known/oauth-protected-resource`, naming the auth server. |
+| T-AUTH-4 | Clients use a pre-registered public client with PKCE in v1. Dynamic Client Registration is enabled for compatibility. CIMD is optional and experimental. |
+| T-AUTH-5 | Every access token is validated for: signature (JWKS, cached with refresh), `exp`, `nbf`, issuer, and **audience equal to this server's resource URL**. (Note: Keycloak 26.7 does not support the resource parameter, so tokens get this server’s URL in aud through an audience mapper.) |
 | T-AUTH-6 | The user identity is the token's `sub` claim. On first valid request, upsert a row in `users` and use its internal UUID as `user_id`. |
 | T-AUTH-7 | Access tokens live about 5 to 15 minutes. Refresh tokens are handled by the client and auth server. |
 | T-AUTH-8 | Admin role is read from a token claim or role. Admin endpoints reject non-admins with `403`. |
@@ -62,7 +62,7 @@ This document says **how** v1 is built. Product goals and user stories are in th
 
 ### 3.2 Notes
 
-- The exact discovery and registration behavior comes from the current MCP authorization specification. **Re-read it before Phase 3**, as details evolve.
+- The exact discovery and registration behavior comes from MCP authorization spec 2026-07-28. **Re-read it before Phase 3**, as details evolve.
 - Test with at least two clients (MCP Inspector and one real AI client).
 
 ---
@@ -88,9 +88,11 @@ A failure at any step stops the pipeline and returns the mapped error (section 1
 
 | Message | Behavior |
 |---|---|
-| `initialize` | Create a session, return server info and capabilities |
+| `initialize` | Validate the token before creating a session; create a session, return server info and capabilities |
 | `tools/list` | Return the v1 tool definitions with input schemas |
 | `tools/call` | Run the named tool with validated arguments |
+
+**Session behavior:** The server uses stateful sessions for older clients such as Inspector, with a possible stateless path for newer ones. Always validate the token before creating a session.
 
 ### 4.3 Transport
 
@@ -242,7 +244,7 @@ HSET rl:{user} tokens last=now; EXPIRE rl:{user} ttl
 
 | ID | Requirement |
 |---|---|
-| T-SES-1 | `initialize` creates a session ID returned in the `Mcp-Session-Id` header. |
+| T-SES-1 | Validate the token before creating a session; `initialize` creates a session ID returned in the `Mcp-Session-Id` header. |
 | T-SES-2 | Session state is stored in Redis at `session:{id}` with `user_id` and `last_seen`. |
 | T-SES-3 | A session is valid only when the token's user matches the session's owner. A session ID alone grants nothing. |
 | T-SES-4 | Sessions expire after a sliding timeout (default 30 minutes, `SESSION_TTL_SECONDS`). |
@@ -250,6 +252,7 @@ HSET rl:{user} tokens last=now; EXPIRE rl:{user} ttl
 | T-SES-6 | A reconnecting client sends `Last-Event-ID` and receives missed events from the buffer. |
 | T-SES-7 | The server holds no session state in process memory, so any app copy can serve any session. |
 | T-SES-8 | Closed or expired sessions are deleted, along with their event buffers. |
+| T-SES-9 | Stateful sessions are maintained for older clients such as Inspector, with a possible stateless path for newer ones. Always validate the token before creating a session. |
 
 ---
 
@@ -410,6 +413,7 @@ This matches the Version 1 Task List.
 | Race conditions in the rate limiter | Single atomic Lua script; concurrent tests |
 | Event buffer grows without bound | Cap length and set expiry |
 | JWKS fetch failure blocks all requests | Cache keys with a refresh and a short grace period |
+| Keycloak lacks resource support | Keycloak lacks resource support, so we rely on the audience mapper. Re-check after upgrading to 26.8. |
 
 ---
 

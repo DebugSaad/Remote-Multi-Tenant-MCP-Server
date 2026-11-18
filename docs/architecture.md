@@ -110,10 +110,10 @@ sequenceDiagram
     participant S as MCP server
     participant A as Auth server
     C->>S: Request without a token
-    S-->>C: 401 + pointer to resource metadata
+    S-->>C: 401 + pointer to resource metadata + scope
     C->>S: Fetch metadata (.well-known)
     S-->>C: Which auth server to use
-    C->>A: Register client (dynamic registration)
+    C->>A: Client ID: pre-registered (v1), DCR fallback, CIMD optional
     C->>A: Open login page (PKCE challenge)
     Note over A: User signs in and approves
     A-->>C: Authorization code
@@ -125,7 +125,7 @@ sequenceDiagram
 - The MCP server never sees the user's password.
 - Access tokens are short-lived. The client refreshes them with the refresh token.
 - The access token's audience must be this MCP server's address.
-- Check the current MCP authorization spec before implementing, since details evolve.
+- Check MCP authorization spec 2026-07-28 before implementing, since details evolve.
 
 ### 5.2 Tool call (every request)
 
@@ -252,6 +252,7 @@ Two independent layers, so one bug cannot cause a leak.
 ## 9. Sessions and Streaming
 
 - The MCP endpoint uses **Streamable HTTP**. Long-running results stream back as server-sent events.
+- **Session behavior:** Supports stateful sessions for older clients such as Inspector, with a possible stateless path for newer ones. Always **validate the token before creating a session**.
 - Each session has an ID, stored in Redis with the owning `user_id`. A session ID alone never grants access: the token must match the session's owner.
 - Streamed events carry IDs and are buffered briefly in Redis, so a client that reconnects can resume from the last event it received.
 - Idle sessions expire automatically. Because state lives in Redis, any server copy can serve any session.

@@ -1,7 +1,7 @@
 services:
-  # ============================================================================
+  # ==========================================================================
   # PostgreSQL 16 (Primary durable relational store with Row-Level Security)
-  # ============================================================================
+  # ==========================================================================
   postgres:
     image: postgres:16-alpine
     container_name: mcp-postgres
@@ -27,9 +27,9 @@ services:
     networks:
       - mcp-network
 
-  # ============================================================================
+  # ==========================================================================
   # Redis 7 (In-memory store for Token Bucket rate limits & active sessions)
-  # ============================================================================
+  # ==========================================================================
   redis:
     image: redis:7-alpine
     container_name: mcp-redis
@@ -59,11 +59,45 @@ services:
     networks:
       - mcp-network
 
+  # ============================================================================
+  # Keycloak (Identity & OAuth 2.1 Provider for tenant authentication)
+  # Expect it to use about 1 GB of RAM
+  # ============================================================================
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1.3
+    container_name: mcp-keycloak
+    restart: unless-stopped
+    command:
+      - start-dev
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN_USER:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD in .env}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD in .env}
+      KC_HTTP_PORT: 8080
+      KC_HEALTH_ENABLED: "true"
+      # Allocate heap memory (expects ~1 GB RAM)
+      JAVA_OPTS_KC_HEAP: "-Xms512m -Xmx1024m"
+    ports:
+      - "127.0.0.1:${KEYCLOAK_PORT:-8080}:8080"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 25s
+    networks:
+      - mcp-network
+
 volumes:
   postgres_data:
     name: mcp_postgres_data
   redis_data:
     name: mcp_redis_data
+  keycloak_data:
+    name: mcp_keycloak_data
 
 networks:
   mcp-network:
