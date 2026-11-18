@@ -52,6 +52,33 @@ class Settings(BaseSettings):
         description="Redis connection URL for rate limiting and sessions",
     )
 
+    # OAuth 2.1 & Keycloak settings
+    mcp_resource_url: str = Field(
+        default="http://localhost:8000",
+        alias="MCP_RESOURCE_URL",
+        description="Public base URL of this MCP resource server",
+    )
+    auth_issuer_url: str = Field(
+        default="http://localhost:8080/realms/mcp",
+        alias="AUTH_ISSUER_URL",
+        description="Keycloak authorization server issuer URL",
+    )
+    auth_jwks_url: str = Field(
+        default="http://localhost:8080/realms/mcp/protocol/openid-connect/certs",
+        alias="AUTH_JWKS_URL",
+        description="JWKS certificate endpoint for token signature verification",
+    )
+    mcp_scope: str = Field(
+        default="mcp",
+        alias="MCP_SCOPE",
+        description="Required OAuth scope for MCP access",
+    )
+    admin_role_name: str = Field(
+        default="admin",
+        alias="ADMIN_ROLE_NAME",
+        description="Keycloak role name for administrative access",
+    )
+
     # Hardcoded test user ID for Phase 2
     test_user_id: str = Field(
         default=DEFAULT_TEST_USER_ID,

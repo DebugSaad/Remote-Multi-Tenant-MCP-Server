@@ -12,6 +12,8 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from src.mcp_server.auth.discovery import get_metadata_response
+from src.mcp_server.auth.middleware import AuthMiddleware
 from src.mcp_server.config import settings
 from src.mcp_server.notes.tools import register_notes_tools
 from src.mcp_server.shared.db import close_db, init_db
@@ -20,7 +22,7 @@ from src.mcp_server.tasks.tools import register_tasks_tools
 # 1. Initialize the low-level MCPServer instance
 server = MCPServer(
     name="remote-mcp-server",
-    version="0.2.0",
+    version="0.3.0",
 )
 
 # 2. Keep 'ping' tool as a lightweight sanity check
@@ -41,18 +43,30 @@ async def health_check(request: Request) -> Response:
         {
             "status": "healthy",
             "service": "remote-multi-tenant-mcp-server",
-            "phase": "Phase 2 - Database and Tools",
+            "phase": "Phase 3 - Authentication",
         }
     )
 
-# 5. Application Factory for Streamable HTTP ASGI application
+# 5. OAuth 2.0 Protected Resource Metadata Endpoints (RFC 9728)
+@server.custom_route("/.well-known/oauth-protected-resource", methods=["GET", "OPTIONS"])
+async def oauth_protected_resource(request: Request) -> Response:
+    """Return RFC 9728 Protected Resource Metadata (root path)."""
+    return get_metadata_response(request)
+
+
+@server.custom_route("/.well-known/oauth-protected-resource/mcp", methods=["GET", "OPTIONS"])
+async def oauth_protected_resource_mcp(request: Request) -> Response:
+    """Return RFC 9728 Protected Resource Metadata (/mcp suffixed path)."""
+    return get_metadata_response(request)
+
+# 6. Application Factory for Streamable HTTP ASGI application
 transport_security = TransportSecuritySettings(
     enable_dns_rebinding_protection=False
 )
 
 
 def create_app() -> Starlette:
-    """Create a new Starlette application instance with lifespan DB management."""
+    """Create a new Starlette application instance with lifespan DB management and auth."""
     app_instance = server.streamable_http_app(
         streamable_http_path="/mcp",
         transport_security=transport_security,
@@ -69,6 +83,7 @@ def create_app() -> Starlette:
             await close_db()
 
     app_instance.router.lifespan_context = app_lifespan
+    app_instance.add_middleware(AuthMiddleware)
     return app_instance
 
 

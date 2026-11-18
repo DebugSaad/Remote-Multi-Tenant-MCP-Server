@@ -15,7 +15,11 @@ from src.mcp_server.main import create_app
 def client() -> Iterator[TestClient]:
     """Module-scoped TestClient ensuring full lifespan and single task group."""
     app = create_app()
-    with TestClient(app, base_url="http://testserver") as test_client:
+    with TestClient(
+        app,
+        base_url="http://testserver",
+        headers={"Authorization": "Bearer test-phase2-token"},
+    ) as test_client:
         yield test_client
 
 
